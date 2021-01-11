@@ -56,7 +56,7 @@
                 </div>
                 <div class="row">
                   <div class="col-md-10 text-left">
-                    <button :disabled='!formPostValid' type="submit" class="btn btn-primary" v-on:click="formPost.id !== 0 ? updatePost(formPost) : createPost(formPost)">Save</button>
+                    <button :disabled='!formPostValid' type="button" class="btn btn-primary" v-on:click="savePost(formPost)">Save</button>
                   </div>
                   <div class="col-md-2 text-right">
                     <button type="button" class="btn btn-muted" v-on:click="resetFormPost()"><span class="fa fa-close"></span> Clear</button>
@@ -109,7 +109,7 @@
                     <div class="col-md text-right">
                       <button class="btn btn-secondary" v-on:click="formPost = post"><span class="fa fa-edit"></span></button>
                       &nbsp;
-                      <button class="btn btn-danger" v-on:click="deletePost(post.id)"><span class="fa fa-trash"></span></button>
+                      <button class="btn btn-danger" v-on:click="deletePost(post)"><span class="fa fa-trash"></span></button>
                     </div>
                   </div>
                 </div>
@@ -158,23 +158,75 @@ export default {
     };
   },
   methods: {
-    createPost(formPost) {
-      this.formPost.id = (Math.floor(Math.random() * 10000));
-      this.posts.push(formPost);
+    savePost(formPost) {
+			axios({
+				url: 'http://localhost:4000',
+				method: 'post',
+				data: {
+					query: `
+						mutation ($formPost: PostInput) {
+							post: savePost (post: $formPost) {
+                id
+								title
+                image
+                description
+								content
+							}
+						}
+					`,
+					variables: {
+						formPost
+					}
+				}
+			}).then(response => {
+        const body = response.data;
+        const query = body.data;
+        const result = query.post;
+        
+        console.log('post saved ' + JSON.stringify(result));
+
+        // Updating view data
+        let existingPost = this.posts.find(post => post.id === result.id);
+        if(!existingPost) {
+          this.posts.push(result);
+        }
+        existingPost = result;
+        this.resetFormPost();
+      });
     },
-    updatePost(formPost) {
-      let selectedPost = this.posts.find(post => post.id === formPost.id);
-      selectedPost.id = formPost.id;
-      selectedPost.title = formPost.title;
-      selectedPost.image = formPost.image;
-      selectedPost.description = formPost.description;
-      selectedPost.content = formPost.content;
-    },
-    deletePost(postId) {
-      const selectedPost = this.posts.find(post => post.id === postId);
-      if(selectedPost) {
-        this.posts.splice(this.posts.indexOf(selectedPost, 1));
-      }
+    deletePost(formPost) {
+      axios({
+				url: 'http://localhost:4000',
+				method: 'post',
+				data: {
+					query: `
+						mutation ($formPost: PostInput) {
+							post: deletePost (post: $formPost) {
+                id
+								title
+                image
+                description
+								content
+							}
+						}
+					`,
+					variables: {
+						formPost
+					}
+				}
+			}).then(response => {
+        const body = response.data;
+        const query = body.data;
+        const result = query.post;
+
+        console.log('post removed ' + JSON.stringify(result));
+        
+        // Updating view data
+        const existingPost = this.posts.find(post => post.id === result.id);
+        if(existingPost) {
+          this.posts.splice(this.posts.indexOf(existingPost, 1));
+        }
+      });
     },
     resetFormPost() {
       this.formPost.id = 0;
@@ -182,6 +234,7 @@ export default {
       this.formPost.image = "";
       this.formPost.description = "";
       this.formPost.content = "";
+      
       console.log('form reset');
     }
   },
@@ -214,6 +267,8 @@ export default {
     }).then(response => {
       const body = response.data;
       const query = body.data;
+
+      // Updating view data
       this.posts = query.posts;
     });
   }

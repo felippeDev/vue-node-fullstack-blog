@@ -1,4 +1,5 @@
 const { ApolloServer } = require('apollo-server');
+const db = require('./database');
 
 const typeDefs = `
     type Post {
@@ -12,35 +13,47 @@ const typeDefs = `
     type Query {
         posts: [Post]
     }
-`;
 
-const posts = [];
-posts.push({
-    id: 1,
-    title: "Aliens: They exist!",
-    image: "https://i.guim.co.uk/img/media/26f400b3f7b1eb2c0cefb0e3c55a0ca69c4009d3/0_346_5184_3110/master/5184.jpg?width=1200&quality=85&auto=format&fit=max&s=1e234daf5bfa1268bb3422dd4c9d67dd",
-    description: "Know about aliens, where you could found one and more...",
-    content: "Aliens: They really exists.. we found one and interviewed him."
-});
-posts.push({
-    id: 2,
-    title: "MIB interventions",
-    image: "https://s2.glbimg.com/qP6Kaw-Gz0aoVJ4UO_KlkkgCS48=/smart/e.glbimg.com/og/ed/f/original/2017/10/02/mib.jpg",
-    description: "Did you ever asked to concentrate on a little red light in a device like a pen?",
-    content: "MIB interventions"
-});
-posts.push({
-    id: 3,
-    title: "Elvis is not dead, he's under arrest by MIBs",
-    image: "https://necaonline.com/wp-content/uploads/2020/08/180856.jpg",
-    description: "Why those black suit guys want restrain a rock legend? And how he still alive?",
-    content: "Elvis is not dead, he's under arrest by MIBs"
-});
+    input PostInput {
+        id: Int
+        title: String
+        image: String
+        description: String
+        content: String
+    }
+
+    type Mutation {
+        savePost(post: PostInput): Post
+        deletePost(post: PostInput): Post
+    }
+`;
 
 const resolvers = {
     Query: {
-        posts() {
-            return posts;
+        async posts() {
+            const result = await db.query("select * from posts");
+            return result;
+        }
+    },
+    Mutation: {
+        async savePost(_, args) {
+            const post = args.post;
+            if(post.id === 0) {
+                // Insert data
+                const result = await db.one('insert into posts (title, image, description, content) values ($1, $2, $3, $4) returning *', [post.title, post.image, post.description, post.content]);
+                return result;
+            } 
+            else {
+                // Update data
+                const result = await db.one('update posts set title=$1, image=$2, description=$3, content=$4 where id=$5 returning *', [post.title, post.image, post.description, post.content, post.id]);
+                return result;
+            }
+        },
+        async deletePost(_, args) {
+            // Delete data
+            const post = args.post;
+            const result = await db.one('delete from posts where id=$1 returning *', [post.id]);
+            return result;
         }
     }
 };
